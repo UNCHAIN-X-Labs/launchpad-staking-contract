@@ -1,13 +1,11 @@
-# Sample Hardhat Project
+# Staking Reward Contract
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a script that deploys that contract.
+This project was created using Hardhat to develop smart contracts for a Staking Service. Usage examples can be found in the contract's comments, documentation, and test code scripts.
 
 Try running some of the following tasks:
 
 ```shell
-npx hardhat help
-npx hardhat test
-REPORT_GAS=true npx hardhat test
-npx hardhat node
-npx hardhat run scripts/deploy.ts
+yarn
+yarn compile
+yarn test
 ```
