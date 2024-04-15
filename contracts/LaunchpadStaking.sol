@@ -645,6 +645,11 @@ contract LaunchpadStaking is ILaunchpadStaking, Ownable, Pausable, ReentrancyGua
         }
     }
 
+    /**
+     * @dev Verify whether the target has exceeded the deadline.
+     * @param target The target to verify.
+     * @param deadline The deadline.
+     */
     function _verifyDeadline(uint256 target, uint256 deadline) internal pure {
         if(target > deadline) {
             revert OverTheDeadline(deadline);
