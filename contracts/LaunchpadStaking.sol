@@ -622,11 +622,12 @@ contract LaunchpadStaking is ILaunchpadStaking, Ownable, Pausable, ReentrancyGua
      */
     function _withdrawRefund(address account, address stakingToken) internal returns (uint256 refund) {
         refund = refundOf[account][stakingToken];
-        if(refund > 0) {
-            stakingToken != address(0) ? _transferERC20(account, stakingToken, refund) : _transferETH(account, refund);
-            refundOf[account][stakingToken] = 0;
-        }
         isWithdrawn[account][stakingToken] = true;
+        
+        if(refund > 0) {
+            refundOf[account][stakingToken] = 0;
+            stakingToken != address(0) ? _transferERC20(account, stakingToken, refund) : _transferETH(account, refund);
+        }
     }
 
     /**
