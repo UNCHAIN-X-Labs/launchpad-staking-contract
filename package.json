@@ -5,6 +5,7 @@
     "compile": "npx hardhat compile",
     "clean": "npx hardhat clean",
     "docgen": "npx hardhat docgen",
+    "deploy-tokens": "npx hardhat --network bnbtest run scripts/deploy-tokens.ts ",
     "test": "npx hardhat test test/xLaunchpad.test.ts"
   },
   "devDependencies": {
@@ -19,8 +20,9 @@
     "@types/chai": "^4.2.0",
     "@types/mocha": ">=9.1.0",
     "chai": "^4.2.0",
+    "dotenv": "^16.4.5",
     "ethers": "^6.10.0",
-    "hardhat": "^2.22.2",
+    "hardhat": "^2.22.3",
     "hardhat-gas-reporter": "^1.0.8",
     "solidity-coverage": "^0.8.1",
     "solidity-docgen": "^0.6.0-beta.36",
