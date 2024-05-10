@@ -6,6 +6,7 @@
     "clean": "npx hardhat clean",
     "docgen": "npx hardhat docgen",
     "deploy-tokens": "npx hardhat --network bnbtest run scripts/deploy-tokens.ts ",
+    "deploy-launchpad": "npx hardhat --network bnbtest run scripts/deploy-launchpad.ts",
     "test": "npx hardhat test test/xLaunchpad.test.ts"
   },
   "devDependencies": {
