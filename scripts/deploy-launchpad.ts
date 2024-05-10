@@ -3,19 +3,25 @@ import { ethers } from "hardhat";
 import { LAUNCHPAD_TOKENS_TEST } from "../data/launchpadTokens";
 import { MINING_MULTIPLIER } from "../data/miningMultiplier";
 
+const minedBlockPerHour = 1200;
+const minedBlockPerDay = minedBlockPerHour * 24;
+// 40202371 -> 2024-05-10 15:00 UTC+9
+const startBlock = 40202371 + (minedBlockPerHour * 2);
+const endBlock = startBlock + minedBlockPerDay * 4 - 1;
+
 async function main() {
     const rewardToken = "";
     const collector = "";
     const initParams: any = {
-      miningStartBlock: 0,
-      miningEndBlock: 0,
-      bonusSupply: 0,
+      miningStartBlock: startBlock,
+      miningEndBlock: endBlock,
+      bonusSupply: parseEther("297750000"),
       poolList: getPools(),
       miningMultipliers: MINING_MULTIPLIER,
       claimSchedule: {
-        countLimit: 0,
-        startBlock: 0,
-        cycle: 0
+        countLimit: 10,
+        startBlock: endBlock + 1,
+        cycle: minedBlockPerHour * 3
       }
     };
 
@@ -23,12 +29,17 @@ async function main() {
     const stakingTokenContract = await contractFactory.deploy(rewardToken, collector);
     const result = await stakingTokenContract.waitForDeployment();
     const ca = await result.getAddress();
-    console.log("Launchpad deploy success:", );
+    console.log("Launchpad deploy success:", ca);
+
+    const rToken = await ethers.getContractAt('ERC20', rewardToken);
+    const transferTx = await rToken.transfer(ca, parseEther('330000000'));
+    const txReceipt1 = await transferTx.wait();
+    console.log(`reward token transfer to Launchpad success: ${txReceipt1}`);
 
     const launchpad = await ethers.getContractAt("LaunchpadStaking", ca);
-    const initialization = await launchpad.initialize(initParams);
-    const tx = await initialization.wait();
-    console.log(`Launchpad initialize success: ${tx}`);
+    const initializationTx = await launchpad.initialize(initParams);
+    const txReceipt2 = await initializationTx.wait();
+    console.log(`Launchpad initialize success: ${txReceipt2}`);
 }
 
 function getPools(): any[] {
@@ -41,8 +52,7 @@ function getPools(): any[] {
 }
 
 function getAllocationPerBlock(allocation: number): bigint {
-  const minedBlockPerHour = 1200;
-  return BigInt(parseEther(allocation.toString()) / BigInt(minedBlockPerHour * 24 * 30));
+  return BigInt(parseEther(allocation.toString()) / BigInt(minedBlockPerHour * 24 * 50));
 }
 
 // We recommend this pattern to be able to use async/await everywhere

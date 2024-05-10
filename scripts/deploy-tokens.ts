@@ -24,7 +24,7 @@ async function main() {
     const contract = await contractFactory.deploy(
       "TEST REWARD TOKEN",
       "TRT",
-      parseUnits("1000000", 18),
+      parseUnits("10000000000", 18),
       18,
       receiver
     );

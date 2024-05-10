@@ -7,6 +7,7 @@
     "docgen": "npx hardhat docgen",
     "deploy-tokens": "npx hardhat --network bnbtest run scripts/deploy-tokens.ts ",
     "deploy-launchpad": "npx hardhat --network bnbtest run scripts/deploy-launchpad.ts",
+    "deposit-lauchpad": "npx hardhat --network bnbtest run scripts/launchpad-deposit.ts",
     "test": "npx hardhat test test/xLaunchpad.test.ts"
   },
   "devDependencies": {
