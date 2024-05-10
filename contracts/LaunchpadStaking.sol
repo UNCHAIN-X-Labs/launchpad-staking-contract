@@ -568,8 +568,8 @@ contract LaunchpadStaking is ILaunchpadStaking, Ownable, Pausable, ReentrancyGua
      * @return refund Refund calculated by returnOption.
      */
     function calculateRefund(uint8 refundOption, uint256 amount) public pure returns (uint256 refund) {
-        if(refundOption > 100) {
-            revert OutOfRange(0, 100, refundOption);
+        if(refundOption > 99) {
+            revert OutOfRange(0, 99, refundOption);
         }
         refund = refundOption == 0 ? 0 : amount * refundOption / 100;
     }
