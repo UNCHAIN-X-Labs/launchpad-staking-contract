@@ -69,7 +69,7 @@ contract LaunchpadStaking is ILaunchpadStaking, Ownable, Pausable, ReentrancyGua
      * @param refundOption The refund option for update.
      */
     modifier updateReward(address stakingToken, uint8 refundOption) {
-        _updateReward(_msgSender(), stakingToken, refundOption);
+        _updateReward(msg.sender, stakingToken, refundOption);
         _;
     }
 
@@ -108,7 +108,7 @@ contract LaunchpadStaking is ILaunchpadStaking, Ownable, Pausable, ReentrancyGua
         checkActive(params.token)
         returns (uint256)
     {   
-        address account = _msgSender();
+        address account = msg.sender;
         uint256 amount = params.token != address(0) ? params.amount : msg.value;
         uint256 refund = calculateRefund(params.refundOption, amount);
         uint256 nonRefund = amount - refund;
@@ -125,7 +125,7 @@ contract LaunchpadStaking is ILaunchpadStaking, Ownable, Pausable, ReentrancyGua
         // Else, add amount to existent depositInfo.
         if(!_depositedPools[account].contains(params.token)) {
             _depositedPools[account].add(params.token);
-            depositInfo[account][params.token][params.refundOption] = DepositInfo(amount, 0, 0);
+            depositInfo[account][params.token][params.refundOption].amount = amount;
         } else {
             depositInfo[account][params.token][params.refundOption].amount += amount;
         }
@@ -187,7 +187,8 @@ contract LaunchpadStaking is ILaunchpadStaking, Ownable, Pausable, ReentrancyGua
         // Else, add amount to exist depositInfo.
         if(!_depositedRefundOptions[account][params.token].contains(params.replacementOption)) {
             _depositedRefundOptions[account][params.token].add(params.replacementOption);
-            depositInfo[account][params.token][params.replacementOption] = DepositInfo(currentDepositInfo.amount, 0, currentDepositInfo.reward);
+            depositInfo[account][params.token][params.replacementOption].amount = currentDepositInfo.amount;
+            depositInfo[account][params.token][params.replacementOption].reward = currentDepositInfo.reward;
         } else {
             depositInfo[account][params.token][params.replacementOption].amount += currentDepositInfo.amount;
             depositInfo[account][params.token][params.replacementOption].reward += currentDepositInfo.reward;
@@ -476,7 +477,7 @@ contract LaunchpadStaking is ILaunchpadStaking, Ownable, Pausable, ReentrancyGua
     function earned(address account, address stakingToken, uint8 refundOption) public view returns (uint256) {
         DepositInfo memory depositInfo_ = depositInfo[account][stakingToken][refundOption];
         uint256 bonusMultiplier = bonusMiningMultipliers[refundOption];
-        return (depositInfo_.amount * (rewardPerToken(stakingToken) - depositInfo_.userRewardPerTokenPaid) / 1e18) * bonusMultiplier / 1000 + depositInfo_.reward;
+        return (depositInfo_.amount * (rewardPerToken(stakingToken) - depositInfo_.userRewardPerTokenPaid)) / 1e18 * bonusMultiplier / 1000 + depositInfo_.reward;
     }
 
     /**
@@ -554,11 +555,20 @@ contract LaunchpadStaking is ILaunchpadStaking, Ownable, Pausable, ReentrancyGua
             uint8 refundOption = uint8(_depositedRefundOptions[account][token].at(i));
             DepositInfo memory depositInfo_ = depositInfo[account][token][refundOption];
             uint256 rewards = earned(account, token, refundOption);
-            uint256 dailyRewards = rewards * 28800;
-            result[i] = DepositInfoResponse(depositInfo_.amount, rewards, dailyRewards, refundOption);
+            uint256 dailyRewards = pools[token].allocation * depositInfo_.amount / pools[token].totalSupply * bonusMiningMultipliers[refundOption] / 10000 * 28800;
+            result[i] = DepositInfoResponse(token, depositInfo_.amount, rewards, dailyRewards, refundOption);
         }
 
         return result;
+    }
+
+    function depositInfoList(address account) external view returns (DepositInfoResponse[][] memory result) {
+        address[] memory depositedPools = depositedPoolsByAccount(account);
+        result = new DepositInfoResponse[][](depositedPools.length);
+
+        for (uint256 i = 0; i < depositedPools.length; i++) {
+            result[i] = depositInfoListByToken(account, depositedPools[i]);
+        }
     }
 
     /**
@@ -568,8 +578,8 @@ contract LaunchpadStaking is ILaunchpadStaking, Ownable, Pausable, ReentrancyGua
      * @return refund Refund calculated by returnOption.
      */
     function calculateRefund(uint8 refundOption, uint256 amount) public pure returns (uint256 refund) {
-        if(refundOption > 99) {
-            revert OutOfRange(0, 99, refundOption);
+        if(refundOption > 100) {
+            revert OutOfRange(0, 100, refundOption);
         }
         refund = refundOption == 0 ? 0 : amount * refundOption / 100;
     }

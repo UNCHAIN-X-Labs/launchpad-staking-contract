@@ -60,6 +60,7 @@ interface ILaunchpadStaking {
      * @dev The response to be returned when requesting deposit information.
      */
     struct DepositInfoResponse {
+        address token;
         uint256 amount;
         uint256 rewards;
         uint256 dailyRewards;
