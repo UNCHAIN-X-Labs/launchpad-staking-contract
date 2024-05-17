@@ -18,7 +18,7 @@ contract GenesisX is Ownable {
      */
     constructor(address ecosystemReserveAccount, address collector, uint256 totalSupply, uint256 launchpadSupply, uint256 ecosystemSupply, uint8 totalRound) Ownable(msg.sender) {
         // Create X-Token contract
-        bytes memory bytecodeForToken = abi.encodePacked(type(UNXToken).creationCode, abi.encode("TEST", "TTT", totalSupply));
+        bytes memory bytecodeForToken = abi.encodePacked(type(UNXToken).creationCode, abi.encode("Unchain X", "UNX", totalSupply));
         unxToken = _createContract(bytecodeForToken);
         
         // Create Launchpad factory contract
