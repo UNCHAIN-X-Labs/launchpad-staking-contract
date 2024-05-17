@@ -6,14 +6,18 @@ import { LAUNCHPAD_TOKENS_MAINNET } from "../data/launchpadTokens";
 const minedBlockPerMin = 20;
 const minedBlockPerHour = 1200;
 const minedBlockPerDay = minedBlockPerHour * 24;
-//  -> 2024-05-17 20:00 UTC+9
+// 38799352 -> 2024-05-17 11:00 UTC
 // Round Info
-// Round 1:  + minedBlockPerHour  2024-05-17 21:00 ~ 2024-05-30 21:00 UTC+9
-const startBlock = 0 + minedBlockPerHour;
+// Round 1: 38799352 + minedBlockPerHour  2024-05-17 12:00 ~ 2024-05-30 12:00 UTC
+const startBlock = 38799352 + minedBlockPerHour;
 const endBlock = startBlock + (minedBlockPerDay * 13) - 1;
 
 async function main() {
+    const ecosystemReserve = "0x6a924a143476753395BdE8a0565baCccDF90Abcf";
     const collector = "0x70c3c20419153768c1F920eC5333d087971E3F55";
+    const totalSupply = parseEther("10000000000");
+    const launchpadSupply = parseEther("331515000");
+    const ecosystemSupply = parseEther("118485000");
     const totalNum = 5;
     const initParams: any = {
       miningStartBlock: startBlock,
@@ -21,25 +25,34 @@ async function main() {
       poolList: getPools(),
       miningMultipliers: MINING_MULTIPLIER
     };
+
+    console.log("startBlock: ", startBlock);
+    console.log("endBlock: ", endBlock);
     
     const GenesisX = await ethers.getContractFactory("GenesisX");
     const genesisX = await GenesisX.deploy(
+        ecosystemReserve,
         collector,
-        collector,
-        parseEther("10000000000"),
-        parseEther("331515000"),
-        parseEther("118485000"),
+        totalSupply,
+        launchpadSupply,
+        ecosystemSupply,
         totalNum
     );
-
+    console.log('Gensis-X deploying..');
     const receipt = await genesisX.waitForDeployment();
+    console.log('Success..!');
     const genesisXCA = await receipt.getAddress();
     const launchpadFactoryCA = await genesisX.launchpadFactory();
     const lauchpadFactory = await ethers.getContractAt("LaunchpadFactory", launchpadFactoryCA);
+    const unxCA = await lauchpadFactory.rewardToken();
+
+    console.log('Creating round 1..');
     const createRoundTx = await lauchpadFactory.createRound(1, initParams);
     await createRoundTx.wait();
+    console.log('Success..!')
 
     console.log(`Genesis-X: ${genesisXCA}`);
+    console.log(`UNX: ${unxCA}`)
     console.log(`Lauchpad Factory: ${launchpadFactoryCA}`);
     console.log(`Lauchpad Staking: ${await lauchpadFactory.stakingContract(1)}`)
 }

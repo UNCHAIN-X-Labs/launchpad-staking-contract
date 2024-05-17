@@ -6,9 +6,9 @@ import { MINING_MULTIPLIER } from "../data/miningMultiplier";
 const minedBlockPerMin = 20;
 const minedBlockPerHour = 1200;
 const minedBlockPerDay = minedBlockPerHour * 24;
-//  -> 2024-05-17 20:00 UTC+9
+//  -> 2024-05-17 11:00 UTC
 // Round Info
-// Round 1:  + minedBlockPerHour  2024-05-17 21:00 ~ 2024-05-30 21:00 UTC+9
+// Round 1:  + minedBlockPerHour  2024-05-17 12:00 ~ 2024-05-30 12:00 UTC
 // Round 2: 
 // Round 3: 
 // Round 4: 
