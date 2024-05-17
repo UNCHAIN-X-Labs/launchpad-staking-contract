@@ -6,7 +6,10 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import './interfaces/ILaunchpadStaking.sol';
+import './interfaces/ILaunchpadStakingV2.sol';
+import './interfaces/ICommonCustomError.sol';
+import './TransferHandler.sol';
+import './LaunchpadFactory.sol';
 
 /**
  * @title Launchpad staking reward contract.
@@ -20,24 +23,20 @@ import './interfaces/ILaunchpadStaking.sol';
  * Additionally, before initializing, ensure that the total reward amount is transferred to this contract as the reward token.
  * total reward token amount = Total reward allocation for each pool + bonus reward.
  */
-contract LaunchpadStaking is ILaunchpadStaking, Ownable, Pausable, ReentrancyGuard {
+contract LaunchpadStakingV2 is ILaunchpadStakingV2, ICommonCustomError, TransferHandler, Ownable, Pausable, ReentrancyGuard {
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.UintSet;
     
-    /// @notice The reward token address.
-    address public immutable rewardToken;
+    /// @notice The Factory contract address.
+    address public immutable factory;
     /// @notice The address for collect non-refund amount.
     address public immutable collector;
-    /// @notice The reward allocation per block for all pool.
-    uint256 public totalAllocationPerBlock;
-    /// @notice Total bonus rewards for refund option.
-    uint256 public bonusRewardSupply;
+    /// @notice The round number.
+    uint8 public immutable round;
     /// @notice The Staking start block number.
     uint256 public stakingStartBlock;
     /// @notice The Staking end block number.
     uint256 public stakingEndBlock;
-    /// @notice The claim limit.
-    uint256 public claimLimit;
 
     /// @notice Deposited pools by user.
     mapping(address => EnumerableSet.AddressSet) private _depositedPools;
@@ -51,16 +50,8 @@ contract LaunchpadStaking is ILaunchpadStaking, Ownable, Pausable, ReentrancyGua
     mapping(uint8 => uint256) public bonusMiningMultipliers;
     /// @notice Deposit info by account, staking token address, refund option.
     mapping(address => mapping(address => mapping(uint8 => DepositInfo))) public depositInfo;
-    /// @notice User's claim count(account => count).
-    mapping(address => uint256) public count;
-    /// @notice Block number per count(count => block number).
-    mapping(uint256 => uint256) public claimableBlock;
     /// @notice User's total reward amount(account => amount).
     mapping(address => uint256) public totalUserRewards;
-    /// @notice User's claimable status.
-    mapping(address => bool) public claimable;
-    /// @notice User's Withdrawal status.
-    mapping(address => mapping(address => bool)) public isWithdrawn;
 
     /**
      * @dev The modifier to run when executing deposit and withdraw functions.
@@ -69,7 +60,7 @@ contract LaunchpadStaking is ILaunchpadStaking, Ownable, Pausable, ReentrancyGua
      * @param refundOption The refund option for update.
      */
     modifier updateReward(address stakingToken, uint8 refundOption) {
-        _updateReward(msg.sender, stakingToken, refundOption);
+        _updateReward(_msgSender(), stakingToken, refundOption);
         _;
     }
 
@@ -81,15 +72,25 @@ contract LaunchpadStaking is ILaunchpadStaking, Ownable, Pausable, ReentrancyGua
         if(block.number < stakingStartBlock || block.number > stakingEndBlock) {
             revert InvalidPeriod(stakingStartBlock, stakingEndBlock);
         }
-        if(!pools[stakingToken].isActive) {
+        if(pools[stakingToken].allocation == 0) {
             revert InvalidPool(stakingToken);
         }
         _;
     }
 
-    constructor(address rewardToken_, address collector_) Ownable(msg.sender) {
-        rewardToken = rewardToken_;
+    modifier refundOptonValidator(uint8 refundOption) {
+        if(block.number > stakingStartBlock + (5 * 28800)) {
+            if(refundOption < 50) {
+                revert BelowStandard(50, refundOption);
+            }
+        }
+        _;
+    }
+
+    constructor(address collector_, uint8 round_) Ownable(msg.sender) {
+        factory = _msgSender();
         collector = collector_;
+        round = round_;
     }
 
     /* -------------------- below functions are external. -------------------- */
@@ -104,11 +105,12 @@ contract LaunchpadStaking is ILaunchpadStaking, Ownable, Pausable, ReentrancyGua
         payable
         nonReentrant
         whenNotPaused
-        updateReward(params.token, params.refundOption)
         checkActive(params.token)
+        refundOptonValidator(params.refundOption)
+        updateReward(params.token, params.refundOption)
         returns (uint256)
     {   
-        address account = msg.sender;
+        address account = _msgSender();
         uint256 amount = params.token != address(0) ? params.amount : msg.value;
         uint256 refund = calculateRefund(params.refundOption, amount);
         uint256 nonRefund = amount - refund;
@@ -155,9 +157,10 @@ contract LaunchpadStaking is ILaunchpadStaking, Ownable, Pausable, ReentrancyGua
         external
         nonReentrant
         whenNotPaused
+        checkActive(params.token)
+        refundOptonValidator(params.replacementOption)
         updateReward(params.token, params.currentOption)
         updateReward(params.token, params.replacementOption)
-        checkActive(params.token)
         returns (uint256)
     {
         if(params.currentOption <= params.replacementOption) {
@@ -170,12 +173,13 @@ contract LaunchpadStaking is ILaunchpadStaking, Ownable, Pausable, ReentrancyGua
 
         address account = _msgSender();
         DepositInfo memory currentDepositInfo = depositInfo[account][params.token][params.currentOption];
-
+        
         if(!_depositedRefundOptions[account][params.token].contains(params.currentOption)) {
             revert InvalidDepositInfo(account, params.token, params.currentOption);
         }
         uint256 additionalNonRefund = calculateRefund(params.currentOption, currentDepositInfo.amount) - calculateRefund(params.replacementOption, currentDepositInfo.amount);
 
+        
         // If {params.token} is not zero address, it means ERC20 Token.
         if(params.token != address(0)) {
             _transferERC20(collector, params.token, additionalNonRefund);
@@ -199,53 +203,10 @@ contract LaunchpadStaking is ILaunchpadStaking, Ownable, Pausable, ReentrancyGua
         delete depositInfo[account][params.token][params.currentOption];
         refundOf[account][params.token] -= additionalNonRefund;
         
-
         emit Withdraw(account, params.token, params.currentOption, currentDepositInfo.amount);
         emit Deposit(account, params.token, params.replacementOption, currentDepositInfo.amount);
 
         return depositInfo[account][params.token][params.replacementOption].amount;
-    }
-
-    /**
-     * @dev Withdraw from all refund options of specific staking token pool when claimable.
-     * @param stakingToken Token address for withdraw.
-     */
-    function withdrawRefund(address stakingToken)
-        external
-        nonReentrant
-        whenNotPaused
-        returns (uint256 refund, uint256 rewards)
-    {
-        if(block.number <= stakingEndBlock) {
-            revert NotYetStarted(stakingEndBlock + 1);
-        }
-
-        address account = _msgSender();
-        
-        if(isWithdrawn[account][stakingToken]) {
-            revert InvalidDepositedPool(account, stakingToken);
-        }
-
-        // Add claimable rewards, and remove _depositedPool.
-        rewards = earnedForAllOptions(account, stakingToken);
-        totalUserRewards[account] += rewards;
-        _depositedPools[account].remove(stakingToken);
-
-        // If no more exist depositedPools, fixed rewards.
-        if(_depositedPools[account].length() == 0) {
-            claimable[account] = true;
-            emit FixRewards(account, totalUserRewards[account]);
-        }
-
-        // Refund deposit
-        for(uint256 i = 0; i < _depositedRefundOptions[account][stakingToken].length(); i++) {
-            uint8 refundOption = uint8(_depositedRefundOptions[account][stakingToken].at(i));
-            _updateReward(account, stakingToken, refundOption);
-            depositInfo[account][stakingToken][refundOption].amount = 0;
-        }
-        refund = _withdrawRefund(account, stakingToken);
-        
-        emit Refund(account, stakingToken, refund);
     }
 
     /**
@@ -262,79 +223,9 @@ contract LaunchpadStaking is ILaunchpadStaking, Ownable, Pausable, ReentrancyGua
         whenPaused
         returns (uint256 refund)
     {
-        for(uint256 i = 0; i < _depositedRefundOptions[account][stakingToken].length(); i++) {
-            uint8 refundOption = uint8(_depositedRefundOptions[account][stakingToken].at(i));
-            _updateReward(account, stakingToken, refundOption);
-            depositInfo[account][stakingToken][refundOption].amount = 0;
-        }
-
         // Refund deposit
         refund = _withdrawRefund(account, stakingToken);
         emit EmergencyWithdraw(account, stakingToken, refund);
-    }
-
-    /**
-     * @dev Withdraw reward token by owner.
-     * @param to The address of receiver.
-     */
-    function withdrawReward(address to, uint256 amount)
-        external
-        onlyOwner
-        nonReentrant
-    {
-        _transferERC20(to, rewardToken, amount);
-    }
-
-    /**
-     * @dev Emergency withdraw reward token by owner.
-     * Should be execute when paused.
-     * @param to The address of receiver.
-     */
-    function emergenctWithdrawReward(address to)
-        external
-        onlyOwner
-        nonReentrant
-        whenPaused
-    {
-        _transferERC20(to, rewardToken, IERC20(rewardToken).balanceOf(address(this)));
-    }
-
-    /**
-     * @dev Claim rewards.
-     * Should be execute after {withdrawRefund}.
-     * @return rewards claimable rewards.
-     */
-    function claim() external nonReentrant whenNotPaused returns (uint256 rewards) {
-        address account = _msgSender();
-
-        if(!claimable[account]) {
-            revert ClaimUnauthorized(account);
-        }
-
-        uint256 formerCount = count[account];
-        uint256 nearestClaimableBlock = claimableBlock[formerCount + 1];
-
-        if(formerCount >= claimLimit) {
-            revert OverTheLimit(claimLimit, formerCount + 1);
-        }
-
-        if(nearestClaimableBlock > block.number) {
-            revert NotYetStarted(nearestClaimableBlock);
-        }
-
-        for (uint256 i = 1; i <= claimLimit; i++) {
-            if(i > formerCount && claimableBlock[i] <= block.number) {
-                rewards += totalUserRewards[account] / claimLimit;
-                count[account]++;
-                emit Claim(account, count[account], rewards);
-            }
-        }
-
-        if(rewards == 0) {
-            revert NotExistRewardOf(account);
-        }
-        
-        _transferERC20(account, rewardToken, rewards);
     }
 
     /**
@@ -343,9 +234,7 @@ contract LaunchpadStaking is ILaunchpadStaking, Ownable, Pausable, ReentrancyGua
      */
     function initialize(InitializeParams calldata params) external onlyOwner {
         setMiningPeriod(params.miningStartBlock, params.miningEndBlock);
-        setBonusRewardSupply(params.bonusSupply);
         setBonusMiningMultiplierBatch(params.miningMultipliers);
-        setClaimSchedule(params.claimSchedule);
 
         for (uint256 i = 0; i < params.poolList.length; i++) {
             setPool(params.poolList[i]);
@@ -379,32 +268,9 @@ contract LaunchpadStaking is ILaunchpadStaking, Ownable, Pausable, ReentrancyGua
             _verifyDeadline(block.number, stakingStartBlock - 1);
         }
 
-        uint256 prevAllocation = pools[params.stakingToken].allocation;
-        uint256 maxValue = (IERC20(rewardToken).balanceOf(address(this)) - ((totalAllocationPerBlock - prevAllocation) * (stakingEndBlock - stakingStartBlock + 1) + bonusRewardSupply)) / (stakingEndBlock - stakingStartBlock + 1);
-
-        if(maxValue < params.allocation) {
-            revert OverTheLimit(maxValue, params.allocation);
-        }
-
-        totalAllocationPerBlock = totalAllocationPerBlock - prevAllocation + params.allocation;
-        pools[params.stakingToken] = PoolInfo(params.allocation, stakingStartBlock, 0, 0, true);
+        pools[params.stakingToken] = PoolInfo(params.allocation, stakingStartBlock, 0, 0);
 
         emit CreatePool(params.stakingToken, params.allocation);
-    }
-
-    /**
-     * @dev Set {bonusRewardSupply}.
-     * @param amount Amount of bonus reward supply.
-     */
-    function setBonusRewardSupply(uint256 amount) public onlyOwner {
-        _verifyDeadline(block.number, stakingStartBlock > 0 ? stakingStartBlock - 1 : 0);
-        uint256 maxValue = IERC20(rewardToken).balanceOf(address(this)) - (totalMiningRewards() - bonusRewardSupply);
-
-        if(maxValue < amount) {
-            revert OverTheLimit(maxValue, amount);
-        }
-
-        bonusRewardSupply = amount;
     }
 
     /**
@@ -427,22 +293,6 @@ contract LaunchpadStaking is ILaunchpadStaking, Ownable, Pausable, ReentrancyGua
 
         stakingStartBlock = startBlock;
         stakingEndBlock = endBlock;
-    }
-
-    function setClaimSchedule(ClaimConfig calldata params) public onlyOwner {
-        if(claimableBlock[1] > 0) {
-            _verifyDeadline(block.number, claimableBlock[1] - 1);
-        }
-
-        if(params.countLimit == 0) {
-            revert OutOfRange(1, type(uint256).max, params.countLimit);
-        }
-
-        claimLimit = params.countLimit;
-
-        for (uint256 i = 0; i < claimLimit; i++) {
-            claimableBlock[i + 1] = i == 0 ? params.startBlock : params.startBlock + params.cycle * i;
-        }
     }    
     
     /**
@@ -465,6 +315,51 @@ contract LaunchpadStaking is ILaunchpadStaking, Ownable, Pausable, ReentrancyGua
     function setBonusMiningMultiplierBatch(MiningMultiplierParams[] calldata params) public onlyOwner {
         for(uint8 i = 0; i < params.length; i++) {
             setBonusMiningMultiplier(params[i]);
+        }
+    }
+
+    /**
+     * @dev Withdraw from all refund options of specific staking token pool when claimable.
+     * @param account User's address.
+     */
+    function withdrawRefund(address account, address stakingToken)
+        public
+        nonReentrant
+        whenNotPaused
+        onlyOwner
+        returns (uint256 refund)
+    {
+        if(block.number <= stakingEndBlock) {
+            revert NotYetStarted(stakingEndBlock + 1);
+        }
+
+        if(_depositedPools[account].contains(stakingToken)) {
+            refund = _withdrawRefund(account, stakingToken);
+            totalUserRewards[account] += earnedForAllOptions(account, stakingToken);
+            _depositedPools[account].remove(stakingToken);
+            emit Refund(account, stakingToken, refund);
+        }
+    }
+
+    function withdrawRefundBatch(address[] calldata params)
+        public
+        nonReentrant
+        whenNotPaused
+        onlyOwner
+    {
+        if(block.number <= stakingEndBlock) {
+            revert NotYetStarted(stakingEndBlock + 1);
+        }
+
+        for(uint256 i = 0; i < params.length; i++) {
+            for(uint256 j = 0; j < _depositedPools[params[i]].length(); j++) {
+                address account = params[i];
+                address token = _depositedPools[params[i]].at(j);
+                uint256 refund = _withdrawRefund(account, token);
+                totalUserRewards[account] += earnedForAllOptions(account, token);
+                _depositedPools[account].remove(token);
+                emit Refund(account, token, refund);
+            }
         }
     }
 
@@ -514,14 +409,6 @@ contract LaunchpadStaking is ILaunchpadStaking, Ownable, Pausable, ReentrancyGua
     }
 
     /**
-     * @dev Return total mining rewards.
-     * @return totalMiningRewards total minting reward.
-     */
-    function totalMiningRewards() public view returns (uint256) {
-        return totalAllocationPerBlock * (stakingEndBlock - stakingStartBlock + 1) + bonusRewardSupply;
-    }
-
-    /**
      * @dev Return poolInfo list.
      * @param tokens Array of token address getting {PoolInfoResponse}.
      */
@@ -555,14 +442,18 @@ contract LaunchpadStaking is ILaunchpadStaking, Ownable, Pausable, ReentrancyGua
             uint8 refundOption = uint8(_depositedRefundOptions[account][token].at(i));
             DepositInfo memory depositInfo_ = depositInfo[account][token][refundOption];
             uint256 rewards = earned(account, token, refundOption);
-            uint256 dailyRewards = pools[token].allocation * depositInfo_.amount / pools[token].totalSupply * bonusMiningMultipliers[refundOption] / 10000 * 28800;
+            uint256 dailyRewards = pools[token].allocation * depositInfo_.amount / pools[token].totalSupply * bonusMiningMultipliers[refundOption] / 1000 * 28800;
             result[i] = DepositInfoResponse(token, depositInfo_.amount, rewards, dailyRewards, refundOption);
         }
 
         return result;
     }
 
-    function depositInfoList(address account) external view returns (DepositInfoResponse[][] memory result) {
+    /**
+     * Return to 
+     * @param account User's account.
+     */
+    function depositInfoList(address account) public view returns (DepositInfoResponse[][] memory result) {
         address[] memory depositedPools = depositedPoolsByAccount(account);
         result = new DepositInfoResponse[][](depositedPools.length);
 
@@ -587,52 +478,12 @@ contract LaunchpadStaking is ILaunchpadStaking, Ownable, Pausable, ReentrancyGua
     /* -------------------- below functions are internal. -------------------- */
 
     /**
-     * Call transfer() function to ERC20 Contract.
-     * @param to Receiver address.
-     * @param token Token address for transfer.
-     * @param amount Amount for transfer.
-     */
-    function _transferERC20(address to, address token, uint256 amount) internal {
-        (bool success, bytes memory data) = token.call(abi.encodeWithSelector(IERC20.transfer.selector, to, amount));
-        if(!success || (data.length != 0 && !abi.decode(data, (bool)))) {
-            revert ERC20TransferFailure(to, address(this), token, amount);
-        }
-    }
-
-    /**
-     * Call transferFrom() function to ERC20 Contract.
-     * @param from Sender address.
-     * @param to Receiver address.
-     * @param token Token address for transfer.
-     * @param amount Amount for transfer.
-     */
-    function _transferFromERC20(address from, address to, address token, uint256 amount) internal {
-        (bool success, bytes memory data) = token.call(abi.encodeWithSelector(IERC20.transferFrom.selector, from, to, amount));
-        if(!success || (data.length != 0 && !abi.decode(data, (bool)))) {
-            revert ERC20TransferFailure(to, from, token, amount);
-        }
-    }
-
-    /**
-     * Call send ETH.
-     * @param to Receiver address.
-     * @param amount Amount for tranfser.
-     */
-    function _transferETH(address to, uint256 amount) internal {
-        (bool success, ) = to.call{value: amount}(new bytes(0));
-        if(!success) {
-            revert ETHTransferFailure(to, address(this), amount);
-        }
-    }
-
-    /**
      * @dev Withdraw token to account.
      * @param account Receiver address.
      * @param stakingToken Token address for transfer.
      */
     function _withdrawRefund(address account, address stakingToken) internal returns (uint256 refund) {
         refund = refundOf[account][stakingToken];
-        isWithdrawn[account][stakingToken] = true;
         
         if(refund > 0) {
             refundOf[account][stakingToken] = 0;
