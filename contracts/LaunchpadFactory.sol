@@ -11,8 +11,7 @@ import './LaunchpadStakingV2.sol';
 
 /**
  * @title Launchpad factory contract.
- * @notice 
- * @dev 
+ * @dev {LaunchpadFactory} is create round with deploy {LaunchpadStakingV2}. and manage launchpad reward.
  */
 contract LaunchpadFactory is ICommonCustomError, TransferHandler, Ownable, ReentrancyGuard, Pausable {
     address public immutable rewardToken;
@@ -127,7 +126,6 @@ contract LaunchpadFactory is ICommonCustomError, TransferHandler, Ownable, Reent
 
     /**
      * @dev Claim rewards.
-     * Should be execute after {withdrawRefund}.
      * @return rewards claimable rewards.
      */
     function claim() external nonReentrant whenNotPaused returns (uint256 rewards) {

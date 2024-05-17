@@ -7,7 +7,7 @@ import "./LaunchpadFactory.sol";
 
 /**
  * @title Genesis-X
- * @dev {GenesisX} is a generator that create the contracts {XToken}, {XLaunchpad} and a reserve pool X-Token for XFi ecosystem.
+ * @dev {GenesisX} is a generator that create the contracts {UNX}, {LauncpadFactoty} and a reserve pool UNX for ecosystem.
  */
 contract GenesisX is Ownable {
     address public immutable unxToken;
@@ -30,6 +30,10 @@ contract GenesisX is Ownable {
         UNXToken(unxToken).transfer(ecosystemReserveAccount, ecosystemSupply);
     }
 
+    /**
+     * @dev Transfer UNX to receiver. It will be halving contract.
+     * @param to The receiver address.
+     */
     function transferToken(address to) external onlyOwner {
         UNXToken(unxToken).transfer(to, UNXToken(unxToken).balanceOf(address(this)));
     }
