@@ -37,10 +37,10 @@ const config: HardhatUserConfig = {
   networks: {
     bnb: {
       url: process.env.BNB_MAINNET_URL,
-      // accounts: [process.env.PRIVATE_KEY || ''],
-      ledgerAccounts: [
-        "0x6a924a143476753395BdE8a0565baCccDF90Abcf",
-      ],
+      accounts: [process.env.PRIVATE_KEY || ''],
+      // ledgerAccounts: [
+      //   "0x6a924a143476753395BdE8a0565baCccDF90Abcf",
+      // ],
       chainId: 56,
     },
     bnbtest: {
