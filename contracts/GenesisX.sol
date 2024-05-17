@@ -28,7 +28,6 @@ contract GenesisX is Ownable {
 
         UNXToken(unxToken).transfer(launchpadFactory, launchpadSupply);
         UNXToken(unxToken).transfer(ecosystemReserveAccount, ecosystemSupply);
-        UNXToken(unxToken).transfer(address(this), totalSupply - launchpadSupply - ecosystemSupply);
     }
 
     function transferToken(address to) external onlyOwner {
