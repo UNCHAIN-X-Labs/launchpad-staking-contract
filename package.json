@@ -5,8 +5,13 @@
     "compile": "npx hardhat compile",
     "clean": "npx hardhat clean",
     "docgen": "npx hardhat docgen",
+    "verify": "npx hardhat --network bnb run scripts/verify.ts",
     "deploy-genesis": "npx hardhat --network bnb run scripts/deployGenesis.ts",
-    "create-round": "npx hardhat --network bnb run scripts/createRound.ts"
+    "deploy-factory2": "npx hardhat --network bnb run scripts/factory2-deploy.ts",
+    "create-round-factory2": "npx hardhat --network bnb run scripts/factory2-create-round.ts",
+    "create-round": "npx hardhat --network bnb run scripts/createRound.ts",
+    "refund": "npx hardhat --network bnb run scripts/refund.ts",
+    "earned": "npx hardhat --network bnb run scripts/earned.ts"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.0",
