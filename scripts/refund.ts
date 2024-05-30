@@ -35,25 +35,26 @@ async function main() {
       console.log(`\nProcessing.. (${i+1}/${users.length})`);
       const tokens = await lauchpadStaking.depositedPoolsByAccount(user);
       console.log(`User: ${user}`);
-
+      
       let j = 0;
       for await (const token of tokens) {
+          delay(1000);
           console.log(`Trying transfer token(${token}).. ${j+1}/${tokens.length}`);
           const refund = await lauchpadStaking.refundOf(user, token);
 
           if(refund > 0) {
-             console.log(`refund: ${refund}.`);
              mappingToken(token, refund);
-            // const createRoundTx = await lauchpadStaking.withdrawRefund(user, token)
-            // .then(async (res) => {
-            //     const receipt = await res.wait();
-            //     if(receipt?.status == 1) {
-            //         console.log("tx success!");
-            //     } else {
-            //         console.log("tx: ", res.hash);
-            //         throw Error("tx failed!");
-            //     }
-            // })
+            const createRoundTx = await lauchpadStaking.withdrawRefund(user, token)
+            .then(async (res) => {
+                const receipt = await res.wait();
+                if(receipt?.status == 1) {
+                    console.log(`refund: ${refund}.`);
+                    console.log("tx success!");
+                } else {
+                    console.log("tx: ", res.hash);
+                    throw Error("tx failed!");
+                }
+            })
              txCount++;
           } else {
              console.log(`refund is ${refund}.`);
