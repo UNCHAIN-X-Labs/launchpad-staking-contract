@@ -9,7 +9,6 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import './interfaces/ILaunchpadStakingV2.sol';
 import './interfaces/ICommonCustomError.sol';
 import './TransferHandler.sol';
-import './LaunchpadFactory.sol';
 
 /**
  * @title Launchpad staking reward contract.
@@ -79,6 +78,10 @@ contract LaunchpadStakingV2 is ILaunchpadStakingV2, ICommonCustomError, Transfer
     }
 
     modifier refundOptonValidator(uint8 refundOption) {
+        if(refundOption > 99) {
+            revert OutOfRange(0, 99, refundOption);
+        }
+
         if(block.number > stakingStartBlock + (5 * 28800)) {
             if(refundOption < 50) {
                 revert BelowStandard(50, refundOption);
@@ -302,8 +305,8 @@ contract LaunchpadStakingV2 is ILaunchpadStakingV2, ICommonCustomError, Transfer
      * multiplier: Bonus mining multiplier. If mining power is 100.0 %, multiplier is 1000.
      */
     function setBonusMiningMultiplier(MiningMultiplierParams calldata params) public onlyOwner {
-        if(params.refundOption > 100) {
-            revert OutOfRange(0, 100, params.refundOption);
+        if(params.refundOption > 99) {
+            revert OutOfRange(0, 99, params.refundOption);
         }
         bonusMiningMultipliers[params.refundOption] = params.multiplier;
     }
@@ -352,13 +355,21 @@ contract LaunchpadStakingV2 is ILaunchpadStakingV2, ICommonCustomError, Transfer
         }
 
         for(uint256 i = 0; i < params.length; i++) {
-            for(uint256 j = 0; j < _depositedPools[params[i]].length(); j++) {
-                address account = params[i];
+            address account = params[i];
+            uint256 len = _depositedPools[params[i]].length();
+            address[] memory tokens = new address[](len);
+
+            for(uint256 j = 0; j < len; j++) {
                 address token = _depositedPools[params[i]].at(j);
                 uint256 refund = _withdrawRefund(account, token);
+                tokens[j] = token;
                 totalUserRewards[account] += earnedForAllOptions(account, token);
-                _depositedPools[account].remove(token);
                 emit Refund(account, token, refund);
+            }
+
+            // remove deposited pools
+            for(uint256 j = 0; j < len; j++) {
+                _depositedPools[account].remove(tokens[j]);
             }
         }
     }
@@ -469,8 +480,8 @@ contract LaunchpadStakingV2 is ILaunchpadStakingV2, ICommonCustomError, Transfer
      * @return refund Refund calculated by returnOption.
      */
     function calculateRefund(uint8 refundOption, uint256 amount) public pure returns (uint256 refund) {
-        if(refundOption > 100) {
-            revert OutOfRange(0, 100, refundOption);
+        if(refundOption > 99) {
+            revert OutOfRange(0, 99, refundOption);
         }
         refund = refundOption == 0 ? 0 : amount * refundOption / 100;
     }
