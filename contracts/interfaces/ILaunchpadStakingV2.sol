@@ -168,4 +168,12 @@ interface ILaunchpadStakingV2 {
      * @param token The staking token contract address.
      */
     error InvalidDepositedPool(address user, address token);
+
+    function stakingStartBlock() external view returns (uint256);
+    function stakingEndBlock() external view returns (uint256);
+    function totalUserRewards(address) external view returns (uint256);
+    function poolInfoListByTokens(address[] calldata tokens) external view returns (PoolInfoResponse[] memory);
+    function depositInfoListByToken(address account, address token) external view returns (DepositInfoResponse[] memory);
+    function depositInfoList(address account) external view returns (DepositInfoResponse[][] memory result);
+    function depositedPoolsByAccount(address account) external view returns (address[] memory);
 }
