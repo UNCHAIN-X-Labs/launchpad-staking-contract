@@ -14,4 +14,4 @@ node_modules
 /coverage.json
 
 # data
-/data/refundUsers.ts
+/data/onchain
