@@ -1,6 +1,6 @@
 import { formatEther } from "ethers";
 import { ethers } from "hardhat";
-import { REFUND_USERS } from "../data/refundUsers";
+import { REFUND_USERS } from "../data/onchain/refundUsers";
 
 const BNB = "0x0000000000000000000000000000000000000000";
 const USDT = "0x55d398326f99059fF775485246999027B3197955";
@@ -30,36 +30,37 @@ async function main() {
 
     // single
     let i = 0;
+
     let txCount = 0;
     for await (const user of users) {
       console.log(`\nProcessing.. (${i+1}/${users.length})`);
       const tokens = await lauchpadStaking.depositedPoolsByAccount(user);
       console.log(`User: ${user}`);
-      
-      let j = 0;
-      for await (const token of tokens) {
-          delay(1000);
-          console.log(`Trying transfer token(${token}).. ${j+1}/${tokens.length}`);
-          const refund = await lauchpadStaking.refundOf(user, token);
+      console.log(tokens.length)
+      if(tokens.length > 0) {
+        let j = 0;
+        for await (const token of tokens) {
+    
+            delay(500);
+            console.log(`Trying transfer token(${token}).. ${j+1}/${tokens.length}`);
 
-          if(refund > 0) {
-             mappingToken(token, refund);
-            const createRoundTx = await lauchpadStaking.withdrawRefund(user, token)
-            .then(async (res) => {
-                const receipt = await res.wait();
-                if(receipt?.status == 1) {
-                    console.log(`refund: ${refund}.`);
-                    console.log("tx success!");
-                } else {
-                    console.log("tx: ", res.hash);
-                    throw Error("tx failed!");
-                }
-            })
-             txCount++;
-          } else {
-             console.log(`refund is ${refund}.`);
-          }
-          j++;
+            // if(refund > 0) {
+              const createRoundTx = await lauchpadStaking.withdrawRefund(user, token)
+              .then(async (res) => {
+                  const receipt = await res.wait();
+                  if(receipt?.status == 1) {
+                      console.log("tx success!");
+                  } else {
+                      console.log("tx: ", res.hash);
+                      throw Error("tx failed!");
+                  }
+              })
+              txCount++;
+            // } else {
+            //    console.log(`refund is ${refund}.`);
+            // }
+            j++;
+        }
       }
       i++;
   }
