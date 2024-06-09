@@ -15,4 +15,4 @@ This repository contains the Unchain X Launchpad Protocol.
 
 
 ## Audit
-[Audit Report](https://github.com/UNCHAIN-X-Labs/launchpad-staking-contract/blob/main/audit/PeckShield-Audit-Report-UnchainX-v1.0.pdf) by Peckshield.
+[Audit Report](https://github.com/UNCHAIN-X-Labs/launchpad-staking-contract/blob/main/audit/PeckShield-Audit-Report-UnchainX-v1.0.pdf) by PeckShield.
