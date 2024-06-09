@@ -1,6 +1,6 @@
 import { formatEther } from "ethers";
+import { REFUND_USERS } from "../data/onchain/refundUsers-2";
 import { ethers } from "hardhat";
-import { REFUND_USERS } from "../data/onchain/refundUsers";
 
 const BNB = "0x0000000000000000000000000000000000000000";
 const USDT = "0x55d398326f99059fF775485246999027B3197955";
@@ -23,74 +23,35 @@ let totalXRP: bigint = BigInt(0);
 async function main() {
     const batchNum = 50;
     const users: string[] = REFUND_USERS;
-    const lauchpadStaking = await ethers.getContractAt("LaunchpadStakingV2", "0x8d2F485bfFc182278c7Ca49f1629d5d5420aE245");
+    const batches: string[][] = [];
+    for (let i = 0; i < users.length; i += batchNum) {
+        batches.push(users.slice(i, i + batchNum));
+    }
+
+    const lauchpadStaking = await ethers.getContractAt("LaunchpadStakingV2", "0xd7D98C9Cf0A3B0b09E5B2848b9250101f21A1240");
     const round = await lauchpadStaking.round();
+    let txCount = 0;
 
     console.log(`Transfer refund round ${round}..`);
 
-    // single
-    let i = 0;
-
-    let txCount = 0;
-    for await (const user of users) {
-      console.log(`\nProcessing.. (${i+1}/${users.length})`);
-      const tokens = await lauchpadStaking.depositedPoolsByAccount(user);
-      console.log(`User: ${user}`);
-      console.log(tokens.length)
-      if(tokens.length > 0) {
-        let j = 0;
-        for await (const token of tokens) {
-    
-            delay(500);
-            console.log(`Trying transfer token(${token}).. ${j+1}/${tokens.length}`);
-
-            // if(refund > 0) {
-              const createRoundTx = await lauchpadStaking.withdrawRefund(user, token)
-              .then(async (res) => {
-                  const receipt = await res.wait();
-                  if(receipt?.status == 1) {
-                      console.log("tx success!");
-                  } else {
-                      console.log("tx: ", res.hash);
-                      throw Error("tx failed!");
-                  }
-              })
-              txCount++;
-            // } else {
-            //    console.log(`refund is ${refund}.`);
-            // }
-            j++;
-        }
-      }
-      i++;
-  }
-
     // batch
-    // for (let i = 0; i < users.length; i += batchNum) {
-    //     const input = users.slice(i, i + batchNum);
-    //     console.log(`Trying transfer to ${input[0]} ~ ${input[input.length - 1]} ..`);
-
-    //     const createRoundTx = await lauchpadStaking.withdrawRefundBatch(input)
-    //     .then(async (res) => {
-    //         const receipt = await res.wait();
-    //         if(receipt?.status == 1) {
-    //             console.log("tx succcess!");
-    //         } else {
-    //             console.log("tx failed!");
-    //         }
-    //         console.log("tx: ", res.hash);
-    //     })
-    // }
+    for await (const batch of batches) {
+        console.log(`Trying transfer to ${batch[0]} ~ ${batch[batch.length - 1]} ..`);
+        delay(2000);
+        const tx = await lauchpadStaking.withdrawRefundBatch(batch)
+        .then(async (res) => {
+            const receipt = await res.wait();
+            if(receipt?.status == 1) {
+                console.log("tx succcess!");
+            } else {
+                console.log("tx failed!");
+            }
+            console.log("tx: ", res.hash);
+        });
+        txCount++;
+    }
 
    console.log(`\ntotal tx count: ${txCount}`);
-   console.log(`total BNB: ${await formatUnits(totalBNB, 18)}`);
-   console.log(`total USDT: ${await formatUnits(totalUSDT, 18)}`);
-   console.log(`total DOGE: ${await formatUnits(totalDOGE, 8)}`);
-   console.log(`total BTCB: ${await formatUnits(totalBTCB, 18)}`);
-   console.log(`total FDUSD: ${await formatUnits(totalFDUSD, 18)}`);
-   console.log(`total ETH: ${await formatUnits(totalETH, 18)}`);
-   console.log(`total SOL: ${await formatUnits(totalSOL, 18)}`);
-   console.log(`total XRP: ${await formatUnits(totalXRP, 18)}`);
 }
 
 function delay(ms: number) {

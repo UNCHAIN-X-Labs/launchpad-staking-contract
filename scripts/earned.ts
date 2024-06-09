@@ -1,6 +1,6 @@
 import { formatEther } from "ethers";
 import { ethers } from "hardhat";
-import { REFUND_USERS } from "../data/onchain/refundUsers";
+import { REFUND_USERS } from "../data/onchain/refundUsers-2";
 
 const BNB = "0x0000000000000000000000000000000000000000";
 const USDT = "0x55d398326f99059fF775485246999027B3197955";
@@ -15,7 +15,7 @@ const tokens = [BNB, USDT, DOGE, BTCB, FDUSD, ETH, SOL, XRP];
 
 async function main() {
     const users: string[] = REFUND_USERS;
-    const lauchpadStaking = await ethers.getContractAt("LaunchpadStakingV2", "0x8d2F485bfFc182278c7Ca49f1629d5d5420aE245");
+    const lauchpadStaking = await ethers.getContractAt("LaunchpadStakingV2", "0xd7D98C9Cf0A3B0b09E5B2848b9250101f21A1240");
     const round = await lauchpadStaking.round();
     let totalRewards: bigint = BigInt(0);
 

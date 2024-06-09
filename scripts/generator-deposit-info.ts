@@ -1,6 +1,6 @@
 import { formatEther } from "ethers";
 import { ethers } from "hardhat";
-import { REFUND_USERS } from "../data/onchain/refundUsers";
+import { REFUND_USERS } from "../data/onchain/refundUsers-1";
 import * as fs from 'fs';
 
 const BNB = "0x0000000000000000000000000000000000000000";
