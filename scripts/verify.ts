@@ -32,10 +32,10 @@ async function main() {
     };
 
     await hre.run("verify:verify", {
-        address: "0xd7D98C9Cf0A3B0b09E5B2848b9250101f21A1240",
+        address: "0xF28961b972163Fad8F220a9df86014e74DF911E8",
         constructorArguments: [
           collector,  // collector
-          2           // round number
+          4           // round number
         ]
     });
 }

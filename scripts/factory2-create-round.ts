@@ -10,8 +10,11 @@ const minedBlockPerDay = minedBlockPerHour * 24;
 // Round 1: 38800552 ~ 39174951  2024-05-17 12:00 ~ 2024-05-30 12:00 UTC
 // Round 2: 39177201 ~ 39465200 2024-05-30 02:40 ~ 2024-06-09 02:40 UTC
 // Round 3: 39465595 ~ 39753594 2024-06-09 03:50 ~ 2024-06-19 03:50 UTC
+// 39752929 01:00
+// 39753840 01:45
+// Round 4: 
 
-const startBlock = 39462202 + (minedBlockPerHour * 4);
+const startBlock = 39755330
 const endBlock = startBlock + (minedBlockPerDay * 10) - 1;
 
 async function main() {
@@ -21,8 +24,7 @@ async function main() {
       poolList: getPools(),
       miningMultipliers: MINING_MULTIPLIER
     };
-    const newRound = 3;
-
+    const newRound = 4;
     const lauchpadFactory = await ethers.getContractAt("LaunchpadFactoryV2", "0x94B1B8bb81a80601f109D9bB3190C535f4F655ad");
 
     // console.log(`Creating round ${newRound}..`);
@@ -42,23 +44,23 @@ async function main() {
     //   });
 
     // Pass to next round.
-    // const passRoundTx = await lauchpadFactory.passToNextRound()
-    //   .then(async (res) => {
-    //       console.log('pass to next round...');
+    const passRoundTx = await lauchpadFactory.passToNextRound()
+      .then(async (res) => {
+          console.log('pass to next round...');
 
-    //       const receipt = await res.wait();
-    //       if(receipt?.status == 1) {
-    //           console.log("tx succcess!");
-    //           console.log(`current round: ${await lauchpadFactory.currentRound()}`);
-    //       } else {
-    //           console.log("tx failed!");
-    //       }
-    //       console.log("tx: ", res.hash);
-    //   })
-    //   .catch(error => {
-    //     console.log(error);
-    //     throw error;
-    //   });
+          const receipt = await res.wait();
+          if(receipt?.status == 1) {
+              console.log("tx succcess!");
+              console.log(`current round: ${await lauchpadFactory.currentRound()}`);
+          } else {
+              console.log("tx failed!");
+          }
+          console.log("tx: ", res.hash);
+      })
+      .catch(error => {
+        console.log(error);
+        throw error;
+      });
 }
 
 function getPools(): any[] {
