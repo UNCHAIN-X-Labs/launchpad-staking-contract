@@ -10,11 +10,10 @@ const minedBlockPerDay = minedBlockPerHour * 24;
 // Round 1: 38800552 ~ 39174951  2024-05-17 12:00 ~ 2024-05-30 12:00 UTC
 // Round 2: 39177201 ~ 39465200 2024-05-30 02:40 ~ 2024-06-09 02:40 UTC
 // Round 3: 39465595 ~ 39753594 2024-06-09 03:50 ~ 2024-06-19 03:50 UTC
-// 39752929 01:00
-// 39753840 01:45
-// Round 4: 
+// Round 4: 39753840 ~ 40041839 2024-06-19 04:45 ~ 2024-06-29 04:45 
+// Round 5: 40042000 ~ 40329999 2024-06-29 06:15 ~ 
 
-const startBlock = 39755330
+const startBlock = 40041839 + minedBlockPerHour
 const endBlock = startBlock + (minedBlockPerDay * 10) - 1;
 
 async function main() {
@@ -24,7 +23,7 @@ async function main() {
       poolList: getPools(),
       miningMultipliers: MINING_MULTIPLIER
     };
-    const newRound = 4;
+    const newRound = 5;
     const lauchpadFactory = await ethers.getContractAt("LaunchpadFactoryV2", "0x94B1B8bb81a80601f109D9bB3190C535f4F655ad");
 
     // console.log(`Creating round ${newRound}..`);
