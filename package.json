@@ -12,7 +12,8 @@
     "create-round": "npx hardhat --network bnb run scripts/createRound.ts",
     "refund": "npx hardhat --network bnb run scripts/refund.ts",
     "earned": "npx hardhat --network bnb run scripts/earned.ts",
-    "generate-data": "npx hardhat --network bnb run scripts/generator-deposit-info.ts"
+    "generate-data": "npx hardhat --network bnb run scripts/generator-deposit-info.ts",
+    "deploy-faucet": "npx hardhat --network bnb run scripts/faucet/faucet-deploy.ts"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.0",
