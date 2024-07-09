@@ -1,6 +1,8 @@
-import { formatEther } from "ethers";
 import { ethers } from "hardhat";
-import { REFUND_USERS } from "../data/onchain/refundUsers-2";
+import { REFUND_USERS as users1 } from "../data/onchain/refundUsers-1";
+import { REFUND_USERS as users2 } from "../data/onchain/refundUsers-2";
+import { REFUND_USERS as users3 } from "../data/onchain/refundUsers-3";
+import { REFUND_USERS as users4 } from "../data/onchain/refundUsers-4";
 
 const BNB = "0x0000000000000000000000000000000000000000";
 const USDT = "0x55d398326f99059fF775485246999027B3197955";
@@ -13,26 +15,35 @@ const XRP = "0x1D2F0da169ceB9fC7B3144628dB156f3F6c60dBE";
 
 const tokens = [BNB, USDT, DOGE, BTCB, FDUSD, ETH, SOL, XRP];
 
+const round1 = '0x8d2F485bfFc182278c7Ca49f1629d5d5420aE245';
+const round2 = '0xd7D98C9Cf0A3B0b09E5B2848b9250101f21A1240';
+const round3 = '0x057d5BF977cE40A7c1c63b1B58609120350fa015';
+const round4 = '0xF28961b972163Fad8F220a9df86014e74DF911E8';
+const round5 = '0x0eA8F9B3EFF635C7e5791BfF899055e4f3Ce0550';
+
+const rounds = [round1, round2, round3, round4, round5];
+const users = [users1, users2, users3, users4, []];
+
+
 async function main() {
-    const users: string[] = REFUND_USERS;
-    const lauchpadStaking = await ethers.getContractAt("LaunchpadStakingV2", "0xd7D98C9Cf0A3B0b09E5B2848b9250101f21A1240");
-    const round = await lauchpadStaking.round();
-    let totalRewards: bigint = BigInt(0);
+  let i = 0;
+  let totalRewards: bigint = BigInt(0);
 
-    console.log(`Total Earned for round ${round}..`);
-    let i = 0;
-    for await (const user of users) {
-      console.log(`\nProcessing.. (${i+1}/${users.length})`);
-      let j = 0;
+  for await (const round of rounds) {
+    const lauchpadStaking = await ethers.getContractAt("LaunchpadStakingV2", round);
+    const roundNum = await lauchpadStaking.round();
+
+    for await (const user of users[i]) {
       for await (const token of tokens) {
+        console.log(`Total Earned for round ${roundNum}..`);
         const reward = await lauchpadStaking.earnedForAllOptions(user, token);
+        console.log(await formatUnits(reward, 18));
         totalRewards += reward;
-        j++;
       }
-      i++;
     }
-
-    console.log(`total Rewards: ${await formatUnits(totalRewards, 18)}`);
+    i++;
+  }
+  console.log(`total Rewards: ${await formatUnits(totalRewards, 18)}`);
 }
 
 async function formatUnits(amount: bigint, decimals: number): Promise<string> {
